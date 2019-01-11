@@ -183,21 +183,21 @@ def uiUpdate():
 		connection = obd.OBD()
 		connection.supported_commands.add(voltagecmd)
 
-	if connectionStatus is not obd.OBDStatus.NOT_CONNECTED:		
+	if connectionStatus is not obd.OBDStatus.NOT_CONNECTED:
+		voltage = connection.query(voltagecmd, force=True)
 		try:
-			voltage = connection.query(voltagecmd, force=True)
 			batteryPercentageLabel.config(text=str(voltage.value).split(" ")[0] + " V")
 		except:
 			batteryPercentageLabel.config(text="0 V")
 			
-		try:	
-			water = connection.query(obd.commands.COOLANT_TEMP)
+		water = connection.query(obd.commands.COOLANT_TEMP)
+		try:
 			waterPercentageLabel.config(text=str(water).split(" ")[0] + " °C")
 		except:
 			waterPercentageLabel.config(text="0 °C")
-			
-		try:	
-			intaketemp = connection.query(obd.commands.INTAKE_TEMP)
+		
+		intaketemp = connection.query(obd.commands.INTAKE_TEMP)
+		try:
 			airPercentageLabel.config(text=str(intaketemp).split(" ")[0] + " °C")
 		except:
 			airPercentageLabel.config(text="0 °C")
@@ -208,20 +208,20 @@ def uiUpdate():
 		except:
 			airflowPercentageLabel.config(text=maf)
 			
-		try:	
-			lambdavolt1 = connection.query(obd.commands.O2_B1S1)
+		lambdavolt1 = connection.query(obd.commands.O2_B1S1)
+		try:
 			lambdaPercentageLabel1.config(text=str(lambdavolt1).split(" ")[0] + " mV")
 		except:
 			lambdaPercentageLabel1.config(text="0 mV") 
 			
+		lambdavolt2 = connection.query(obd.commands.O2_B1S2)
 		try:	
-			lambdavolt2 = connection.query(obd.commands.O2_B1S2)
 			lambdaPercentageLabel2.config(text=str(lambdavolt2).split(" ")[0] + " mV")
 		except:
 			lambdaPercentageLabel2.config(text="0 mV")
 			
-		try:	
-			timingadvance = connection.query(obd.commands.TIMING_ADVANCE)
+		timingadvance = connection.query(obd.commands.TIMING_ADVANCE)
+		try:
 			ignitionPercentageLabel.config(text=str(timingadvance).split(" ")[0] + " °")
 		except:
 			ignitionPercentageLabel.config(text="0 °") 
