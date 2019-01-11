@@ -3,9 +3,14 @@ import datetime
 import obd
 import subprocess
 
+
 # Settings
-bluetoothMac = "00:1D:A5:68:98:8B"
-uiRefreshInterval = 200
+#----------------------------------------------------------
+
+obd.logger.setLevel(obd.logging.DEBUG)
+connectionStatus = obd.OBDStatus.NOT_CONNECTED
+connection = None
+
 logoPng = "/home/pi/cardisplay/opel.png"
 
 colorBackground = "black"
@@ -29,16 +34,27 @@ colorRevs = "orange"
 
 colorKmh = "white"
 colorUmin = "white"
-# Settings end
 
+# Init stuff
+#----------------------------------------------------------
+
+obd.logger.setLevel(obd.logging.ERROR)
 connectionStatus = obd.OBDStatus.NOT_CONNECTED
-connection = obd.OBD()
+connection = None
+
+# Custom-Parsers
+#----------------------------------------------------------
+
+# Custom ELM-Voltage parser & command for my module
+def elmVoltageCustom(messages):
+	return messages[0].frames[0].raw.lower().split('v')[0].replace('v', '')
+
+voltagecmd = obd.OBDCommand("ELM_VOLTAGECUSTOM", "Voltage custom", b"ATRV", 0, elmVoltageCustom, obd.ECU.UNKNOWN, False)
 
 # GUI
 #----------------------------------------------------------
 
 root = Tk()
-
 root.title("Car Display")
 root.geometry("480x320")
 root.attributes('-fullscreen', True)
@@ -82,55 +98,53 @@ piclockxLabel.place(x=420, y=300)
 # Left Labels
 #----------------------------------------------------------
 
+labelsX = 6;
+valuesX = 180;
+
 batteryLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Bordspannung:")
-batteryLabel.place(x=6, y=48)
+batteryLabel.place(x=labelsX, y=48)
 batteryPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... V")
-batteryPercentageLabel.place(x=220, y=48)
+batteryPercentageLabel.place(x=valuesX, y=48)
 
-waterLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Wassertemperatur:")
-waterLabel.place(x=6, y=72)
+waterLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Wassertemp:")
+waterLabel.place(x=labelsX, y=72)
 waterPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... °C")
-waterPercentageLabel.place(x=220, y=72)
+waterPercentageLabel.place(x=valuesX, y=72)
 
-airLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Ansaugtemperatur:")
-airLabel.place(x=6, y=96)
+airLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Ansaugtemp:")
+airLabel.place(x=labelsX, y=96)
 airPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... °C")
-airPercentageLabel.place(x=220, y=96)
+airPercentageLabel.place(x=valuesX, y=96)
 
 airflowLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Ansaugmasse:")
-airflowLabel.place(x=6, y=120)
+airflowLabel.place(x=labelsX, y=120)
 airflowPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... g/s")
-airflowPercentageLabel.place(x=220, y=120)
+airflowPercentageLabel.place(x=valuesX, y=120)
 
-lambdaLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Lambdaspannung:")
-lambdaLabel.place(x=6, y=144)
-lambdaPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... mV")
-lambdaPercentageLabel.place(x=220, y=144)
+lambdaLabel1 = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Lambda 1:")
+lambdaLabel1.place(x=labelsX, y=144)
+lambdaPercentageLabel1 = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... mV")
+lambdaPercentageLabel1.place(x=valuesX, y=144)
 
-intakepressureLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Ansaugdruck:")
-intakepressureLabel.place(x=6, y=168)
-intakepressurePercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... kPa")
-intakepressurePercentageLabel.place(x=220, y=168)
-
-fuelpressureLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Benzindruck:")
-fuelpressureLabel.place(x=6, y=192)
-fuelpressurePercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... kPa")
-fuelpressurePercentageLabel.place(x=220, y=192)
+lambdaLabel2 = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Lambda 2:")
+lambdaLabel2.place(x=labelsX, y=168)
+lambdaPercentageLabel2 = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... mV")
+lambdaPercentageLabel2.place(x=valuesX, y=168)
 
 ignitionLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Zündwinkel:")
-ignitionLabel.place(x=6, y=216)
+ignitionLabel.place(x=labelsX, y=192)
 ignitionPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... °")
-ignitionPercentageLabel.place(x=220, y=216)
+ignitionPercentageLabel.place(x=valuesX, y=192)
 
-loadLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Motorlast:")
-loadLabel.place(x=6, y=240)
-loadPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... %")
-loadPercentageLabel.place(x=220, y=240)
+loadLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 20), text="Motorlast:")
+loadLabel.place(x=labelsX, y=228)
+loadPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 20), text="... %")
+loadPercentageLabel.place(x=valuesX, y=228)
 
-gasLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Gas:")
-gasLabel.place(x=6, y=264)
-gasPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... %")
-gasPercentageLabel.place(x=220, y=264)
+gasLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 20), text="Gas:")
+gasLabel.place(x=labelsX, y=260)
+gasPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 20), text="... %")
+gasPercentageLabel.place(x=valuesX, y=260)
 
 # Left Labels
 #----------------------------------------------------------
@@ -150,10 +164,10 @@ uminLabel.place(x=370, y=96)
 def uiUpdate():
 	global connectionStatus
 	global connection
-	timeToRunAfter = uiRefreshInterval
+	timeToRunAfter = 500
 	
-	time = datetime.datetime.now().strftime("%H:%M:%S")
-	timeLabel.config(text=time)
+	time = datetime.datetime.now()+datetime.timedelta(hours=1)
+	timeLabel.config(text=time.strftime("%H:%M:%S"))
 
 	temp = subprocess.run(['cat', '/sys/class/thermal/thermal_zone0/temp'], stdout=subprocess.PIPE).stdout.decode('utf-8')
 	pitempLabel.config(text=round(int(temp)/1000))
@@ -161,85 +175,80 @@ def uiUpdate():
 	clock = subprocess.run(['cat', '/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq'], stdout=subprocess.PIPE).stdout.decode('utf-8')
 	piclockLabel.config(text=round(int(clock)/1000))
 
-	connectionStatus = connection.status()
-	statusLabel.config(text=connectionStatus)
+	if connection is not None:
+		connectionStatus = connection.status()
+		statusLabel.config(text=connectionStatus)
 
-	if connectionStatus is obd.OBDStatus.NOT_CONNECTED:
+	if connectionStatus is obd.OBDStatus.NOT_CONNECTED or connection is None:
 		connection = obd.OBD()
+		connection.supported_commands.add(voltagecmd)
 
-	if connectionStatus is not obd.OBDStatus.NOT_CONNECTED:
-		
+	if connectionStatus is not obd.OBDStatus.NOT_CONNECTED:		
 		try:
-			voltage = connection.query(obd.commands.ELM_VOLTAGE)
-			batteryPercentageLabel.config(text=str(voltage).split("")[0] + " V")
+			voltage = connection.query(voltagecmd, force=True)
+			batteryPercentageLabel.config(text=str(voltage.value).split(" ")[0] + " V")
 		except:
 			batteryPercentageLabel.config(text="0 V")
 			
 		try:	
 			water = connection.query(obd.commands.COOLANT_TEMP)
-			waterPercentageLabel.config(text=str(water).split("")[0] + " °C")
+			waterPercentageLabel.config(text=str(water).split(" ")[0] + " °C")
 		except:
 			waterPercentageLabel.config(text="0 °C")
 			
 		try:	
 			intaketemp = connection.query(obd.commands.INTAKE_TEMP)
-			airPercentageLabel.config(text=str(intaketemp).split("")[0] + " °C")
+			airPercentageLabel.config(text=str(intaketemp).split(" ")[0] + " °C")
 		except:
 			airPercentageLabel.config(text="0 °C")
 			
-		try:	
-			maf = connection.query(obd.commands.MAF)
-			airflowPercentageLabel.config(text=round(int(str(maf).split("")[0]), 2) + " g/s")
+		maf = connection.query(obd.commands.MAF)
+		try:
+			airflowPercentageLabel.config(text=round(float(maf.split(" ")[0]), 2) + " g/s")
 		except:
-			airflowPercentageLabel.config(text="0 g/s")
+			airflowPercentageLabel.config(text=maf)
 			
 		try:	
-			lambdavolt = connection.query(obd.commands.O2_S1_WR_VOLTAGE)
-			lambdaPercentageLabel.config(text=str(lambdavolt).split("")[0] + " mV")
+			lambdavolt1 = connection.query(obd.commands.O2_B1S1)
+			lambdaPercentageLabel1.config(text=str(lambdavolt1).split(" ")[0] + " mV")
 		except:
-			lambdaPercentageLabel.config(text="0 mVl") 
+			lambdaPercentageLabel1.config(text="0 mV") 
 			
 		try:	
-			intakepressure = connection.query(obd.commands.INTAKE_PRESSURE)
-			intakepressurePercentageLabel.config(text=str(intakepressure).split("")[0] + " kPa")		
+			lambdavolt2 = connection.query(obd.commands.O2_B1S2)
+			lambdaPercentageLabel2.config(text=str(lambdavolt2).split(" ")[0] + " mV")
 		except:
-			intakepressurePercentageLabel.config(text="0 kPa") 
-			
-		try:   
-			fuelpressure = connection.query(obd.commands.FUEL_PRESSURE)
-			fuelpressurePercentageLabel.config(text=str(fuelpressure).split("")[0] + " kPa")
-		except:
-			fuelpressurePercentageLabel.config(text="0 kPa") 
+			lambdaPercentageLabel2.config(text="0 mV")
 			
 		try:	
 			timingadvance = connection.query(obd.commands.TIMING_ADVANCE)
-			ignitionPercentageLabel.config(text=str(timingadvance).split("")[0] + " °")
+			ignitionPercentageLabel.config(text=str(timingadvance).split(" ")[0] + " °")
 		except:
 			ignitionPercentageLabel.config(text="0 °") 
-		 
-		try:	
-			engineload = connection.query(obd.commands.ENGINE_LOAD)
-			loadPercentageLabel.config(text=round(int(str(engineload).split("")[0])) + " %")
+		
+		engineload = connection.query(obd.commands.ENGINE_LOAD)
+		try:
+			loadPercentageLabel.config(text=round(float(engineload)) + " %")
 		except:
-			loadPercentageLabel.config(text="0 %") 
+			loadPercentageLabel.config(text=engineload) 
+		
+		gas = connection.query(obd.commands.THROTTLE_POS)
+		try:
+			gasPercentageLabel.config(text=round(float(gas)) + " %")
+		except:
+			gasPercentageLabel.config(text=gas) 
 			
-		try:	
-			gas = connection.query(obd.commands.THROTTLE_POS)
-			gasPercentageLabel.config(text=round(int(str(gas).split("")[0])) + " %")
+		speed = connection.query(obd.commands.SPEED)
+		try:
+			speedLabel.config(text=round(float(speed)))
 		except:
-			gasPercentageLabel.config(text="0 %") 
+			speedLabel.config(text=speed)
 			
-		try:	
-			speed = connection.query(obd.commands.SPEED)
-			speedLabel.config(text=round(int(speed.split("")[0]))) 
+		rpm = connection.query(obd.commands.RPM)
+		try:
+			revsLabel.config(text=round(float(rpm)))
 		except:
-			speedLabel.config(text="0")
-			
-		try:	
-			rpm = connection.query(obd.commands.RPM)
-			revsLabel.config(text=round(int(rpm.split("")[0])))
-		except:
-			revsLabel.config(text="0")
+			revsLabel.config(text=rpm)
 	else:
 		timeToRunAfter = 2000
 
