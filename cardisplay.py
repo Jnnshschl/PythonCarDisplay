@@ -1,17 +1,20 @@
-from tkinter import *
+from tkinter import Label, PhotoImage, Tk
+import subprocess
 import datetime
 import obd
-import subprocess
 
 
 # Settings
 #----------------------------------------------------------
+labelsX = 6
+valuesX = 180
 
-obd.logger.setLevel(obd.logging.DEBUG)
 connectionStatus = obd.OBDStatus.NOT_CONNECTED
 connection = None
 
 logoPng = "/home/pi/cardisplay/opel.png"
+textTile1 = "OPEL"
+textTile2 = "Corsa C 1.2L Twinport"
 
 colorBackground = "black"
 
@@ -39,6 +42,7 @@ colorUmin = "white"
 #----------------------------------------------------------
 
 obd.logger.setLevel(obd.logging.ERROR)
+
 connectionStatus = obd.OBDStatus.NOT_CONNECTED
 connection = None
 
@@ -67,10 +71,10 @@ logoImage = PhotoImage(file=logoPng)
 logoLabel = Label(image=logoImage)
 logoLabel.place(x=6, y=2, height=36, width=36)
 
-titleLabel1 = Label(root, fg=colorTitle1, bg=colorBackground, font=("Aldrich", 20), text="OPEL")
+titleLabel1 = Label(root, fg=colorTitle1, bg=colorBackground, font=("Aldrich", 20), text=textTile1)
 titleLabel1.place(x=42, y=8)
 
-titleLabel2 = Label(root, fg=colorTitle2, bg=colorBackground, font=("Aldrich", 14), text="Corsa C 1.2L Twinport")
+titleLabel2 = Label(root, fg=colorTitle2, bg=colorBackground, font=("Aldrich", 14), text=textTile2)
 titleLabel2.place(x=120, y=14)
 
 timeLabel = Label(root, fg=colorTime, bg=colorBackground, font=("Aldrich", 16), text="00:00:00")
@@ -85,21 +89,18 @@ statusLabel.place(x=6, y=300)
 piLabel = Label(root, fg=colorPi, bg=colorBackground, font=("Aldrich", 16), text="Pi:")
 piLabel.place(x=220, y=300)
 
-pitempLabel = Label(root, fg=colorTemp, bg=colorBackground, font=("Aldrich", 16), text="50")
+pitempLabel = Label(root, fg=colorTemp, bg=colorBackground, font=("Aldrich", 16), text="0")
 pitempLabel.place(x=280, y=300)
 pitempxLabel = Label(root, fg=colorC, bg=colorBackground, font=("Aldrich", 16), text="°C")
 pitempxLabel.place(x=310, y=300)
 
-piclockLabel = Label(root, fg=colorClock, bg=colorBackground, font=("Aldrich", 16), text="1000")
+piclockLabel = Label(root, fg=colorClock, bg=colorBackground, font=("Aldrich", 16), text="0")
 piclockLabel.place(x=350, y=300)
 piclockxLabel = Label(root, fg=colorMHz, bg=colorBackground, font=("Aldrich", 16), text="MHz")
 piclockxLabel.place(x=420, y=300)
 
 # Left Labels
 #----------------------------------------------------------
-
-labelsX = 6;
-valuesX = 180;
 
 batteryLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Bordspannung:")
 batteryLabel.place(x=labelsX, y=48)
@@ -166,7 +167,7 @@ def uiUpdate():
 	global connection
 	timeToRunAfter = 500
 	
-	time = datetime.datetime.now()+datetime.timedelta(hours=1)
+	time = datetime.datetime.now() + datetime.timedelta(hours=1)
 	timeLabel.config(text=time.strftime("%H:%M:%S"))
 
 	temp = subprocess.run(['cat', '/sys/class/thermal/thermal_zone0/temp'], stdout=subprocess.PIPE).stdout.decode('utf-8')
