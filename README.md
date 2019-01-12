@@ -69,4 +69,5 @@ Hidden=false
 ## Credits
 
 ❤️ PyOBD - https://python-obd.readthedocs.io/en/latest/
+
 ❤️ Tkinter - https://wiki.python.org/moin/TkInter
