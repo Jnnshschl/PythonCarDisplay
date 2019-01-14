@@ -2,6 +2,7 @@ from tkinter import Label, PhotoImage, Tk
 import subprocess
 import datetime
 import obd
+import os
 
 
 # Settings
@@ -205,9 +206,9 @@ def uiUpdate():
 			
 		maf = connection.query(obd.commands.MAF)
 		try:
-			airflowPercentageLabel.config(text=str(round(float(maf.split(" ")[0]), 2) + " g/s"))
+			airflowPercentageLabel.config(text=str(round(float(str(maf).split(" ")[0]), 2) + " g/s"))
 		except:
-			airflowPercentageLabel.config(text=maf)
+			airflowPercentageLabel.config(text=str(maf).replace("gps", "g/s"))
 			
 		lambdavolt1 = connection.query(obd.commands.O2_B1S1)
 		try:
@@ -229,27 +230,30 @@ def uiUpdate():
 		
 		engineload = connection.query(obd.commands.ENGINE_LOAD)
 		try:
-			loadPercentageLabel.config(text=str(round(float(engineload)) + " %"))
+			loadPercentageLabel.config(text=str(engineload).split(".")[0] + " %")
 		except:
 			loadPercentageLabel.config(text=engineload) 
 		
 		gas = connection.query(obd.commands.THROTTLE_POS)
 		try:
-			gasPercentageLabel.config(text=str(round(float(gas)) + " %"))
+			gasPercentageLabel.config(text=str(gas).split(".")[0] + " %")
 		except:
 			gasPercentageLabel.config(text=gas) 
 			
 		speed = connection.query(obd.commands.SPEED)
 		try:
-			speedLabel.config(text=str(round(float(speed))))
+			speedLabel.config(text=str(speed).split(".")[0])
 		except:
 			speedLabel.config(text=speed)
 			
 		rpm = connection.query(obd.commands.RPM)
 		try:
-			revsLabel.config(text=str(round(float(rpm))))
+			revsLabel.config(text=str(rpm).split(".")[0])
 		except:
 			revsLabel.config(text=rpm)
+
+		if voltage is not "None":
+			os.system("curl -i -XPOST 'http://10.0.0.11:8086/write?db=systeminfo' --data-binary 'CorsaC voltage=" + str(voltage) + "'")
 	else:
 		timeToRunAfter = 2000
 
