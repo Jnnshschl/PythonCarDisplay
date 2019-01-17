@@ -1,6 +1,8 @@
-from tkinter import Label, PhotoImage, Tk
+from tkinter import Label, PhotoImage, Tk, Canvas, ttk
 import subprocess
 import datetime
+import time
+import json
 import obd
 import os
 
@@ -8,10 +10,13 @@ import os
 # Settings
 #----------------------------------------------------------
 labelsX = 6
-valuesX = 180
+valuesX = 170
 
 connectionStatus = obd.OBDStatus.NOT_CONNECTED
 connection = None
+
+logValuesToFile = True
+logFileName = "/home/pi/obd2_values.txt"
 
 logoPng = "/home/pi/cardisplay/opel.png"
 textTile1 = "OPEL"
@@ -19,25 +24,41 @@ textTile2 = "Corsa C 1.2L Twinport"
 
 colorBackground = "black"
 
-colorTitle1 = "red"
-colorTitle2 = "orange"
+colorTitle1 = "firebrick1"
+colorTitle2 = "firebrick2"
 colorTime = "white"
 
+colorLoadBar = "firebrick1"
+colorGasBar = "firebrick1"
+
 colorPi = "white"
-colorTemp = "orange"
+colorTemp = "tomato"
 colorC = "white"
-colorClock = "orange"
+colorClock = "tomato"
 colorMHz = "white"
 
-colorStatus= "white"
+colorStatus= "darkorange"
 colorLabels = "white"
 colorValues = "orange"
 
-colorSpeed = "orange"
-colorRevs = "orange"
+colorSpeed = "darkorange"
+colorRevs = "darkorange"
 
 colorKmh = "white"
 colorUmin = "white"
+
+pointerWidth = 6 / 2 # will be 6 pixels
+
+colorLambdaHeader = "white"
+colorLambdaFooter = "white"
+
+colorLambda1Bad = "firebrick1"
+colorLambda1Okay = "gold"
+colorLambda1Good = "chartreuse2"
+
+colorLambda2Bad = "firebrick1"
+colorLambda2Okay = "gold"
+colorLambda2Good = "chartreuse2"
 
 # Init stuff
 #----------------------------------------------------------
@@ -108,12 +129,12 @@ batteryLabel.place(x=labelsX, y=48)
 batteryPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... V")
 batteryPercentageLabel.place(x=valuesX, y=48)
 
-waterLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Wassertemp:")
+waterLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Kühlmittel:")
 waterLabel.place(x=labelsX, y=72)
 waterPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... °C")
 waterPercentageLabel.place(x=valuesX, y=72)
 
-airLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Ansaugtemp:")
+airLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 14), text="Ansaugluft:")
 airLabel.place(x=labelsX, y=96)
 airPercentageLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 14), text="... °C")
 airPercentageLabel.place(x=valuesX, y=96)
@@ -151,23 +172,122 @@ gasPercentageLabel.place(x=valuesX, y=260)
 # Left Labels
 #----------------------------------------------------------
 
-speedLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 32), text="0")
+speedLabel = Label(root, fg=colorSpeed, bg=colorBackground, font=("Aldrich", 32), text="0")
 speedLabel.place(x=280, y=48)
-kmhLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 32), text="km/h")
+kmhLabel = Label(root, fg=colorKmh, bg=colorBackground, font=("Aldrich", 32), text="km/h")
 kmhLabel.place(x=370, y=48)
 
-revsLabel = Label(root, fg=colorValues, bg=colorBackground, font=("Aldrich", 20), text="0")
+revsLabel = Label(root, fg=colorRevs, bg=colorBackground, font=("Aldrich", 20), text="0")
 revsLabel.place(x=280, y=96)
-uminLabel = Label(root, fg=colorLabels, bg=colorBackground, font=("Aldrich", 20), text="U/min")
+uminLabel = Label(root, fg=colorUmin, bg=colorBackground, font=("Aldrich", 20), text="U/min")
 uminLabel.place(x=370, y=96)
 
+# Gauges
 #----------------------------------------------------------
+
+#speedGauge = Canvas(root, bg=colorBackground, width=180, height=200)
+#speedGauge.place(x=280, y=140)
+#speedGauge.create_arc(10, 10, 170, 190, style="arc", width=20, start=-10, extent=170, outline=speedGaugeColorNormal, tags=('arc2'))
+#speedGauge.create_arc(10, 10, 170, 190, style="arc", width=20, start=160, extent=20, outline=speedGaugeColorHigh, tags=('arc1'))
+
+#polyPoints = [(100, 40), (110, 100), (100, 110), (90, 100)]
+#polyNeedle = speedGauge.create_polygon(polyPoints, fill='white')
+
+# Bars
+#----------------------------------------------------------
+
+
+lambdaBarsLabel = Label(root, fg=colorLambdaHeader, bg=colorBackground, font=("Aldrich", 12), text="Luft/Benzingemisch:")
+lambdaBarsLabel.place(x=280, y=130)
+lambdaBarsLabel2 = Label(root, fg=colorLambdaFooter, bg=colorBackground, font=("Aldrich", 12), text="Mager                  Fett")
+lambdaBarsLabel2.place(x=280, y=196)
+
+lambda1BarCanvas = Canvas(root, bg=colorBackground, width=180, height=12, borderwidth=0, highlightthickness=0)
+lambda1BarCanvas.create_rectangle(0, 2, 40, 10, fill=colorLambda1Bad)
+lambda1BarCanvas.create_rectangle(30, 2, 70, 10, fill=colorLambda1Okay)
+lambda1BarCanvas.create_rectangle(70, 2, 110, 10, fill=colorLambda1Good)
+lambda1BarCanvas.create_rectangle(110, 2, 150, 10, fill=colorLambda1Okay)
+lambda1BarCanvas.create_rectangle(150, 2, 180, 10, fill=colorLambda1Bad)
+lambda1Pointer = lambda1BarCanvas.create_rectangle(88, 0, 92, 11, fill='white')
+lambda1BarCanvas.place(x=280, y=154 + 1)
+
+lambda2BarCanvas = Canvas(root, bg=colorBackground, width=180, height=12, borderwidth=0, highlightthickness=0)
+lambda2BarCanvas.create_rectangle(0, 2, 40, 10, fill=colorLambda2Bad)
+lambda2BarCanvas.create_rectangle(30, 2, 70, 10, fill=colorLambda2Okay)
+lambda2BarCanvas.create_rectangle(70, 2, 110, 10, fill=colorLambda2Good)
+lambda2BarCanvas.create_rectangle(110, 2, 150, 10, fill=colorLambda2Okay)
+lambda2BarCanvas.create_rectangle(150, 2, 180, 10, fill=colorLambda2Bad)
+lambda2Pointer = lambda2BarCanvas.create_rectangle(88, 0, 92, 11, fill='white')
+lambda2BarCanvas.place(x=280, y=178 + 1)
+
+gasLoadTheme = ttk.Style()
+gasLoadTheme.theme_use('clam')
+gasLoadTheme.configure("loadBarTheme.Horizontal.TProgressbar", background=colorLoadBar, troughcolor=colorBackground, bordercolor="gray30")
+
+loadBar = ttk.Progressbar(root, style="loadBarTheme.Horizontal.TProgressbar", orient="horizontal", length=180, mode="determinate", maximum=100)
+loadBar.place(x=280, y=228)
+
+gasBarTheme = ttk.Style()
+gasBarTheme.theme_use('clam')
+gasBarTheme.configure("gasBarTheme.Horizontal.TProgressbar", background=colorGasBar, troughcolor=colorBackground, bordercolor="gray30")
+
+gasBar = ttk.Progressbar(root, style="gasBarTheme.Horizontal.TProgressbar", orient="horizontal", length=180, mode="determinate", maximum=100)
+gasBar.place(x=280, y=260)
+
+#----------------------------------------------------------
+
+class CarData:
+	def __init__(self, connectionStatus, batteryVoltage, coolantTemperature, intakeTemperature, intakeAirflow, lambdaVoltage1, lambdaVoltage2, timingAdvance, engineLoad, throttle, speed, rpm):
+		self.timestamp = int(round(time.time() * 1000))
+		self.connectionStatus = connectionStatus
+		self.batteryVoltage = batteryVoltage
+		self.coolantTemperature = coolantTemperature
+		self.intakeTemperature = intakeTemperature
+		self.intakeAirflow = intakeAirflow
+		self.lambdaVoltage1 = lambdaVoltage1
+		self.lambdaVoltage2 = lambdaVoltage2
+		self.timingAdvance = timingAdvance
+		self.engineLoad = engineLoad
+		self.throttle = throttle
+		self.speed = speed
+		self.rpm = rpm
+
+#----------------------------------------------------------
+
+def QueryAndParseResultSpace(connection, cmd, roundDecimals):
+	result = 0
+	rawResult = connection.query(cmd, force=True)
+
+	try:
+		splittedStuff = str(rawResult).split(" ")[0]
+		result = round(float(splittedStuff), roundDecimals)
+		
+		if roundDecimals is 0:
+			result = int(result)
+	except Exception as ex:
+		print("Error: " + ex)
+	
+	return result
+
+
+def CalculateLambdaPointerPosition(currentLambda, maxX, maxY):
+	finalPos = int(maxX / 2) - pointerWidth, 0, int(maxX / 2) + pointerWidth, 12
+
+	try:
+		lambdaPercent = float(currentLambda) / 1.0
+		finalPos = (maxX * lambdaPercent) - pointerWidth, 0, (maxX * lambdaPercent) + pointerWidth, 12
+	except:
+		pass
+
+	return finalPos
+
 
 def uiUpdate():
 	global connectionStatus
 	global connection
-	timeToRunAfter = 500
-	
+
+	#print("Updating UI...")
+
 	time = datetime.datetime.now() + datetime.timedelta(hours=1)
 	timeLabel.config(text=time.strftime("%H:%M:%S"))
 
@@ -181,84 +301,70 @@ def uiUpdate():
 		connectionStatus = connection.status()
 		statusLabel.config(text=connectionStatus)
 
+	# if we aren't connected, try to connect and add our custom voltage cmd
 	if connectionStatus is obd.OBDStatus.NOT_CONNECTED or connection is None:
 		connection = obd.OBD()
 		connection.supported_commands.add(voltagecmd)
-
+	
 	if connectionStatus is not obd.OBDStatus.NOT_CONNECTED:
-		voltage = connection.query(voltagecmd, force=True)
-		try:
-			batteryPercentageLabel.config(text=str(voltage.value).split(" ")[0] + " V")
-		except:
-			batteryPercentageLabel.config(text="0 V")
-			
-		water = connection.query(obd.commands.COOLANT_TEMP)
-		try:
-			waterPercentageLabel.config(text=str(water).split(" ")[0] + " °C")
-		except:
-			waterPercentageLabel.config(text="0 °C")
-		
-		intaketemp = connection.query(obd.commands.INTAKE_TEMP)
-		try:
-			airPercentageLabel.config(text=str(intaketemp).split(" ")[0] + " °C")
-		except:
-			airPercentageLabel.config(text="0 °C")
-			
-		maf = connection.query(obd.commands.MAF)
-		try:
-			airflowPercentageLabel.config(text=str(round(float(str(maf).split(" ")[0]), 2) + " g/s"))
-		except:
-			airflowPercentageLabel.config(text=str(maf).replace("gps", "g/s"))
-			
-		lambdavolt1 = connection.query(obd.commands.O2_B1S1)
-		try:
-			lambdaPercentageLabel1.config(text=str(lambdavolt1).split(" ")[0] + " mV")
-		except:
-			lambdaPercentageLabel1.config(text="0 mV") 
-			
-		lambdavolt2 = connection.query(obd.commands.O2_B1S2)
-		try:	
-			lambdaPercentageLabel2.config(text=str(lambdavolt2).split(" ")[0] + " mV")
-		except:
-			lambdaPercentageLabel2.config(text="0 mV")
-			
-		timingadvance = connection.query(obd.commands.TIMING_ADVANCE)
-		try:
-			ignitionPercentageLabel.config(text=str(timingadvance).split(" ")[0] + " °")
-		except:
-			ignitionPercentageLabel.config(text="0 °") 
-		
-		engineload = connection.query(obd.commands.ENGINE_LOAD)
-		try:
-			loadPercentageLabel.config(text=str(engineload).split(".")[0] + " %")
-		except:
-			loadPercentageLabel.config(text=engineload) 
-		
-		gas = connection.query(obd.commands.THROTTLE_POS)
-		try:
-			gasPercentageLabel.config(text=str(gas).split(".")[0] + " %")
-		except:
-			gasPercentageLabel.config(text=gas) 
-			
-		speed = connection.query(obd.commands.SPEED)
-		try:
-			speedLabel.config(text=str(speed).split(".")[0])
-		except:
-			speedLabel.config(text=speed)
-			
-		rpm = connection.query(obd.commands.RPM)
-		try:
-			revsLabel.config(text=str(rpm).split(".")[0])
-		except:
-			revsLabel.config(text=rpm)
-
-		if voltage is not "None":
-			os.system("curl -i -XPOST 'http://10.0.0.11:8086/write?db=systeminfo' --data-binary 'CorsaC voltage=" + str(voltage) + "'")
+		currentCarData = CarData(
+			connectionStatus,
+			QueryAndParseResultSpace(connection, voltagecmd, 2),
+			QueryAndParseResultSpace(connection, obd.commands.COOLANT_TEMP, 0),
+			QueryAndParseResultSpace(connection, obd.commands.INTAKE_TEMP, 0),
+			QueryAndParseResultSpace(connection, obd.commands.MAF, 0),
+			QueryAndParseResultSpace(connection, obd.commands.O2_B1S1, 2),
+			QueryAndParseResultSpace(connection, obd.commands.O2_B1S2, 2),
+			QueryAndParseResultSpace(connection, obd.commands.TIMING_ADVANCE, 2),
+			QueryAndParseResultSpace(connection, obd.commands.ENGINE_LOAD, 0),
+			QueryAndParseResultSpace(connection, obd.commands.THROTTLE_POS, 0),
+			QueryAndParseResultSpace(connection, obd.commands.SPEED, 0),
+			QueryAndParseResultSpace(connection, obd.commands.RPM, 0)
+		)
 	else:
-		timeToRunAfter = 2000
+		currentCarData = CarData(connectionStatus, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
-	root.after(timeToRunAfter, uiUpdate)
+	batteryPercentageLabel.config(text=str(currentCarData.batteryVoltage) + " V")
+	waterPercentageLabel.config(text=str(currentCarData.coolantTemperature) + " °C")
+	airPercentageLabel.config(text=str(currentCarData.intakeTemperature) + " °C")
+	airflowPercentageLabel.config(text=str(currentCarData.intakeAirflow) + " g/s")
+	lambdaPercentageLabel1.config(text=str(currentCarData.lambdaVoltage1) + " mV")
+	lambdaPercentageLabel2.config(text=str(currentCarData.lambdaVoltage2) + " mV")
+	ignitionPercentageLabel.config(text=str(currentCarData.timingAdvance) + " °")
+	loadPercentageLabel.config(text=str(currentCarData.engineLoad) + " %")
+	gasPercentageLabel.config(text=str(currentCarData.throttle) + " %")
+	speedLabel.config(text=str(currentCarData.speed))
+	revsLabel.config(text=str(currentCarData.rpm))
 
-uiUpdate()
+	loadBar["value"] = currentCarData.engineLoad
+	gasBar["value"] = currentCarData.throttle
 
-root.mainloop()
+	lambdaPointer1Pos = CalculateLambdaPointerPosition(currentCarData.lambdaVoltage1, 180, 12)
+	lambdaPointer2Pos = CalculateLambdaPointerPosition(currentCarData.lambdaVoltage2, 180, 12)
+
+	lambda1BarCanvas.coords(lambda1Pointer, lambdaPointer1Pos[0], lambdaPointer1Pos[1], lambdaPointer1Pos[2], lambdaPointer1Pos[3],)
+	lambda2BarCanvas.coords(lambda2Pointer, lambdaPointer2Pos[0], lambdaPointer2Pos[1], lambdaPointer2Pos[2], lambdaPointer2Pos[3],)
+
+	# log data
+	if logValuesToFile:
+		#os.system("curl -i -XPOST 'http://10.0.0.11:8086/write?db=systeminfo' --data-binary 'CorsaC voltage=" + str(currentCarData.batteryVoltage) + "' &")
+		with open(logFileName, "a") as logfile:
+			logfile.write(json.dumps(currentCarData.__dict__) + "\n")
+
+	root.after(500, uiUpdate)
+
+def main():
+	# prevent screensaver on XFCE
+	os.system("xset s off")
+	os.system("xset dpms 0 0 0")
+	os.system("xset -dpms s off")
+
+	# hide the cursor
+	os.system("unclutter &")
+
+	uiUpdate()
+	root.mainloop()
+
+
+if __name__ == '__main__':
+	main()
