@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from tkinter import Label, PhotoImage, Tk, Canvas, ttk
 import subprocess
 import datetime
@@ -100,7 +102,7 @@ titleLabel2 = Label(root, fg=colorTitle2, bg=colorBackground, font=("Aldrich", 1
 titleLabel2.place(x=120, y=14)
 
 timeLabel = Label(root, fg=colorTime, bg=colorBackground, font=("Aldrich", 16), text="00:00:00")
-timeLabel.place(x=380, y=12)
+timeLabel.place(x=376, y=12)
 
 statusLabel = Label(root, fg=colorStatus, bg=colorBackground, font=("Aldrich", 16), text="NOT_CONNECTED")
 statusLabel.place(x=6, y=300)
@@ -255,18 +257,27 @@ class CarData:
 #----------------------------------------------------------
 
 def QueryAndParseResultSpace(connection, cmd, roundDecimals):
-	result = 0
-	rawResult = connection.query(cmd, force=True)
-
 	try:
-		splittedStuff = str(rawResult).split(" ")[0]
-		result = round(float(splittedStuff), roundDecimals)
+		result = 0
+		rawResult = connection.query(cmd)
+
+		if rawResult != None and str(rawResult) != "None" and str(rawResult.value) != "atr":
+			try:
+				splittedStuff = str(rawResult.value)
+				result = round(float(splittedStuff), roundDecimals)
 		
-		if roundDecimals is 0:
-			result = int(result)
-	except Exception as ex:
-		print("Error: " + ex)
-	
+				if roundDecimals is 0:
+					result = int(result)
+			except Exception as ex:
+				print("Error: " + str(ex)) 
+				result = -1
+		else:
+			print("[" + str(cmd) + "] No value received...")
+			result = 0
+		
+	except Exception as excep:
+		print("Error: " + str(excep))
+		result = -1
 	return result
 
 
@@ -306,7 +317,7 @@ def uiUpdate():
 		connection = obd.OBD()
 		connection.supported_commands.add(voltagecmd)
 	
-	if connectionStatus is not obd.OBDStatus.NOT_CONNECTED:
+	if connectionStatus is obd.OBDStatus.CAR_CONNECTED:
 		currentCarData = CarData(
 			connectionStatus,
 			QueryAndParseResultSpace(connection, voltagecmd, 2),
@@ -322,7 +333,10 @@ def uiUpdate():
 			QueryAndParseResultSpace(connection, obd.commands.RPM, 0)
 		)
 	else:
-		currentCarData = CarData(connectionStatus, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+		if connectionStatus is obd.OBDStatus.OBD_CONNECTED:
+			currentCarData = CarData(connectionStatus, QueryAndParseResultSpace(connection, voltagecmd, 2), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+		else:
+			currentCarData = CarData(connectionStatus, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
 	batteryPercentageLabel.config(text=str(currentCarData.batteryVoltage) + " V")
 	waterPercentageLabel.config(text=str(currentCarData.coolantTemperature) + " °C")
@@ -347,11 +361,10 @@ def uiUpdate():
 
 	# log data
 	if logValuesToFile:
-		#os.system("curl -i -XPOST 'http://10.0.0.11:8086/write?db=systeminfo' --data-binary 'CorsaC voltage=" + str(currentCarData.batteryVoltage) + "' &")
 		with open(logFileName, "a") as logfile:
 			logfile.write(json.dumps(currentCarData.__dict__) + "\n")
 
-	root.after(500, uiUpdate)
+	root.after(250, uiUpdate)
 
 def main():
 	# prevent screensaver on XFCE
